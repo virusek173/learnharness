@@ -1,0 +1,14 @@
+services:
+  learnharness:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./auth.json:/app/auth.json
+      - ./chatgpt-credentials.json:/app/chatgpt-credentials.json
+      - ${HOME}/.claude:/home/node/.claude
+      - ${HOME}/.claude.json:/home/node/.claude.json
