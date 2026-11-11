@@ -2043,7 +2043,7 @@ export function Chat({
 					onPreparePluginQuestion={preparePluginQuestion}
 					preparing={submissionRunner.occupied}
 					preparationStatus={<>
-						{preparationError && <p role="alert" className="px-4 py-2 text-sm text-destructive">{preparationError}</p>}
+						{preparationError && <p role="alert" className="py-2 pl-4 pr-12 text-sm text-destructive">{preparationError}</p>}
 					</>}
 					pluginQuestion={pendingPlugin}
 					pluginDraft={pendingPlugin ? pluginQuestionDraft(pendingPlugin) : undefined}
