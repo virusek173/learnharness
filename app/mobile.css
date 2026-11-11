@@ -1,0 +1,28 @@
+/*
+ * Fork (mobile adaptation). Kept out of globals.css so upstream syncs stay
+ * conflict-free. Plain (unlayered) CSS: it outranks Tailwind's layered
+ * utilities, which is exactly what the overrides below rely on.
+ */
+
+/* viewport-fit=cover (app/layout.tsx) lets the page run under the notch and
+   the home indicator; the frame pads itself back in. Every inset is 0 on
+   desktop, so this is a no-op there. */
+.lh-app-frame {
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+		env(safe-area-inset-left);
+}
+
+@media (max-width: 767px) {
+	/* The full-screen sidebar sits outside the padded frame (fixed). */
+	.lh-mobile-sidebar[data-open="true"] {
+		padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+			env(safe-area-inset-left);
+	}
+
+	/* iOS Safari zooms the page into any focused field under 16px. */
+	input,
+	textarea,
+	select {
+		font-size: max(16px, 1em);
+	}
+}
