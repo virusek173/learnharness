@@ -9,6 +9,8 @@ services:
     user: "1001:1001"
     environment:
       HOME: /home/node
+      # Tailscale Serve host name; v0.6.0 refuses other non-localhost hosts.
+      LH_ALLOWED_HOSTS: frodo.taila03462.ts.net
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
