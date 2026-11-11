@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { probeArrivalExpanded, revealArrival, shouldStampGeometryMute } from "../components/chat.tsx";
+import { atBottomAutoExpand, probeArrivalExpanded, revealArrival, shouldStampGeometryMute } from "../components/chat.tsx";
 
 /**
  * Teach-question arrival states (owner ruling, scroll-honesty round
@@ -58,5 +58,25 @@ describe("probeArrivalExpanded — how a probe question lands", () => {
 
 	it("scrolled up in history: arrive already-collapsed (owner ruling)", () => {
 		assert.equal(probeArrivalExpanded(false), false);
+	});
+});
+/**
+ * The Minimize button's fold (owner, mobile round): touch cannot reach the
+ * scroll fold, so the button folds the dock, and reaching the bottom must
+ * not undo it. Only the bar (or Enter) re-opens it.
+ */
+describe("atBottomAutoExpand — when reaching the bottom re-opens a closed dock", () => {
+	it("a scroll fold re-opens at the bottom", () => {
+		assert.equal(atBottomAutoExpand(false, false, false), true);
+		assert.equal(atBottomAutoExpand(true, true, false), true);
+	});
+
+	it("an unrevealed teach check stays behind its invitation", () => {
+		assert.equal(atBottomAutoExpand(true, false, false), false);
+	});
+
+	it("a Minimize fold holds at the bottom", () => {
+		assert.equal(atBottomAutoExpand(false, false, true), false);
+		assert.equal(atBottomAutoExpand(true, true, true), false);
 	});
 });
