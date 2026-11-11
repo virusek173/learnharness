@@ -1,5 +1,7 @@
 node_modules/
 data/
+# local copies/backups of app data (chats etc.) — never committed
+data_*/
 .next/
 *.log
 .DS_Store
