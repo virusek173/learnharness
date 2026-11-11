@@ -20,6 +20,8 @@ const prose = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans3" });
 export const metadata: Metadata = {
 	title: "Learning Harness",
 	description: "A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
+	// Fork: home-screen web app on iOS (manifest.ts covers the rest).
+	appleWebApp: { capable: true, title: "LearnHarness", statusBarStyle: "black-translucent" },
 };
 
 // Fork (mobile): cover the notch (safe-area padding lives in mobile.css)
