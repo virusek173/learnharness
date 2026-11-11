@@ -2962,7 +2962,7 @@ export function DockOverlay({
 								composer
 							)}
 						</div>
-						{(pending || practice) && expanded && (
+						{(pending || practice || pluginQuestion) && expanded && (
 							<button
 								type="button"
 								aria-label="Minimize"
