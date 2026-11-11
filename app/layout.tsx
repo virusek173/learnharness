@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Source_Sans_3 } from "next/font/google";
 import { connection } from "next/server";
 import "katex/dist/katex.min.css";
 import "./globals.css";
+import "./mobile.css";
 import { AppShell, SidebarProvider } from "@/components/sidebar";
 import { ActivityProvider } from "@/components/activity-dock";
 import { ServerEventsProvider } from "@/components/server-events";
@@ -20,6 +21,20 @@ export const metadata: Metadata = {
 	title: "Learning Harness",
 	description: "A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
 };
+
+// Fork (mobile): cover the notch (safe-area padding lives in mobile.css)
+// and tint the browser chrome with the active theme's background.
+export async function generateViewport(): Promise<Viewport> {
+	await connection();
+	const { vars } = readThemeBoot();
+	return {
+		width: "device-width",
+		initialScale: 1,
+		viewportFit: "cover",
+		interactiveWidget: "resizes-content",
+		themeColor: vars["--background"],
+	};
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
 	// The theme is server-rendered — its class AND its color variables —

@@ -58,6 +58,12 @@ import type { UpdateState } from "@/components/settings/update-settings.tsx";
 import { FilePathDropZone } from "@/components/file-path-drop-zone";
 const SIDEBAR_AUTOCLOSE = 928;
 
+/* Fork (mobile): below 768px (Tailwind md) the open sidebar covers the whole
+ * screen instead of squeezing the page. There it starts closed, its state is
+ * not persisted, and it closes on every navigation. Mirrors max-md: classes. */
+const MOBILE_QUERY = "(max-width: 767px)";
+const isMobileViewport = () => window.matchMedia?.(MOBILE_QUERY).matches ?? false;
+
 // Module scope, guarded for SSR (the server has no navigator).
 const IS_ELECTRON = typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
 
@@ -94,9 +100,10 @@ declare global {
 	}
 }
 
-const SidebarContext = createContext<{ open: boolean; toggle: () => void }>({
+const SidebarContext = createContext<{ open: boolean; toggle: () => void; closeOnMobile: () => void }>({
 	open: false,
 	toggle: () => {},
+	closeOnMobile: () => {},
 });
 
 export function useSidebar() {
@@ -116,6 +123,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
 	const [mounted, setMounted] = useState(false);
+	const [mobile, setMobile] = useState(false);
 
 	useEffect(() => {
 		// Electron shell detection (merged chrome, 2026-09-17): keys the
@@ -139,8 +147,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 		void window.lh?.getZoom?.().then(setZoomVar);
 
 		const stored = localStorage.getItem(STORAGE_KEY);
-		// Default: open (first run introduces the sidebar).
-		setOpen(stored === null ? true : stored === "1");
+		// Default: open (first run introduces the sidebar). Mobile: closed.
+		setOpen(!isMobileViewport() && (stored === null ? true : stored === "1"));
 		setMounted(true);
 		return () => off?.();
 	}, []);
@@ -157,7 +165,36 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
 
+	// Fork (mobile): crossing the breakpoint closes (into mobile) or restores
+	// the persisted preference (out of mobile).
+	useEffect(() => {
+		const query = window.matchMedia?.(MOBILE_QUERY);
+		if (!query) return;
+		const onChange = () => {
+			setMobile(query.matches);
+			const stored = localStorage.getItem(STORAGE_KEY);
+			setOpen(!query.matches && (stored === null ? true : stored === "1"));
+		};
+		setMobile(query.matches);
+		query.addEventListener("change", onChange);
+		return () => query.removeEventListener("change", onChange);
+	}, []);
+
+	const closeOnMobile = useCallback(() => {
+		if (isMobileViewport()) setOpen(false);
+	}, []);
+
+	// Fork (mobile): every route change closes the full-screen sidebar.
+	const pathname = usePathname();
+	useEffect(() => {
+		closeOnMobile();
+	}, [pathname, closeOnMobile]);
+
 	const toggle = useCallback(() => {
+		if (mobile) {
+			setOpen((v) => !v); // not persisted: the desktop preference stays intact
+			return;
+		}
 		// Opening while narrow (auto-closed, or the user's own closed-at-
 		// narrow): ask the shell to widen to the threshold — the resize
 		// listener flips `narrow` and the sidebar appears. The preference
@@ -173,7 +210,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 			localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
 			return !v;
 		});
-	}, [narrow, open]);
+	}, [narrow, open, mobile]);
 
 	// ⌘B: the global shortcut dispatches kbdEventForAction("toggle-sidebar")
 	// and the context answers on exactly that name — the shared spelling
@@ -189,9 +226,9 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, [toggle]);
 
 	return (
-		<SidebarContext.Provider value={{ open: open && !narrow, toggle }}>
+		<SidebarContext.Provider value={{ open: open && !narrow, toggle, closeOnMobile }}>
 			{/* transitions gated on mount: no slide-in flash on page load */}
-			<div className={cn("flex h-dvh", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
+			<div className={cn("lh-app-frame flex h-dvh", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
 		</SidebarContext.Provider>
 	);
 }
@@ -404,7 +441,7 @@ const KIND_FILTER_KEY = "lh:session-kind-filter";
 
 function SessionsSidebar() {
 	const interactions = useInteractionLayers();
-	const { open, toggle } = useSidebar();
+	const { open, toggle, closeOnMobile } = useSidebar();
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
 	const [query, setQuery] = useState("");
 	const [kindFilter, setKindFilter] = useState<SessionKindFilter>("all");
@@ -425,8 +462,9 @@ function SessionsSidebar() {
 	   message is sent (and that message becomes its title). Search: a
 	   client-side filter over the poll snapshot — no server round trip. */
 	const newSession = useCallback(() => {
+		closeOnMobile();
 		router.push("/chat/new");
-	}, [router]);
+	}, [router, closeOnMobile]);
 
 	/* FUZZY (owner round 8, 2026-10-05): subsequence match ranked by
 	 * fuzzyScore — prefix beats word-boundary beats scattered. Empty query
@@ -653,10 +691,14 @@ function SessionsSidebar() {
 
 	return (
 		<aside
-			className={cn("sidebar-motion shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
+			className={cn(
+				"lh-mobile-sidebar sidebar-motion shrink-0 overflow-hidden duration-200",
+				open ? "w-72 max-md:fixed max-md:inset-0 max-md:z-40 max-md:w-full max-md:bg-background" : "w-0",
+			)}
+			data-open={open}
 			aria-hidden={!open}
 		>
-			<div className="flex h-full w-72 flex-col border-r bg-background">
+			<div className="flex h-full w-72 flex-col border-r bg-background max-md:w-full max-md:border-r-0">
 				{/* LH wordmark — the owner's header; close toggle sits at the edge.
 				    Merged chrome (2026-09-17): in Electron this band is the
 				    window's drag surface and starts after the traffic lights
@@ -679,6 +721,7 @@ function SessionsSidebar() {
 					>
 						<Link
 							href="/"
+							onClick={closeOnMobile}
 							aria-label="Home"
 							className="lh-no-drag flex size-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
 						>
@@ -715,7 +758,10 @@ function SessionsSidebar() {
 						type="button"
 						data-testid="new-session-practice"
 						title="Practice"
-						onClick={() => router.push("/chat/new?mode=practice")}
+						onClick={() => {
+							closeOnMobile();
+							router.push("/chat/new?mode=practice");
+						}}
 						className="flex min-w-0 w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					>
 						<DumbbellIcon className="size-3 shrink-0" />
@@ -773,6 +819,7 @@ function SessionsSidebar() {
 									const target = shown![kbdIndex !== null && kbdIndex < n ? kbdIndex : 0];
 									if (!target) return;
 									e.preventDefault();
+									closeOnMobile();
 									router.push(`/chat/${target.id}`);
 									setKbdIndex(null);
 									e.currentTarget.blur();
@@ -837,6 +884,7 @@ function SessionsSidebar() {
 									kbdSelected={i === kbdIndex}
 									onOpen={() => {
 										setKbdIndex(null);
+										closeOnMobile();
 										router.push(`/chat/${c.id}`);
 									}}
 									onContextMenu={(e) => openContext(e, c)}
@@ -860,7 +908,10 @@ function SessionsSidebar() {
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"
-								onClick={() => openSettings()}
+								onClick={() => {
+									closeOnMobile();
+									openSettings();
+								}}
 								data-testid="settings-entry"
 								className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 							>
