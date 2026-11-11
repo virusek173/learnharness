@@ -52,7 +52,7 @@ import { PlanBlock, PlanPopup, latestTree } from "@/components/plan-block";
 import { PlanMarginalia, planExists } from "@/components/plan-window";
 import { MermaidOverlay, SessionMermaidContext } from "@/components/session-overlay";
 import { AbortTurnDialog, type AbortMode } from "@/components/abort-turn-dialog";
-import { ArrowRightIcon, DumbbellIcon, WaypointsIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon, DumbbellIcon, WaypointsIcon } from "lucide-react";
 import type { PlanBlockData } from "@/src/core";
 import { QuestionDock } from "@/components/question-dock";
 import { SessionFind } from "@/components/session-find";
@@ -1925,6 +1925,16 @@ export function shouldStampGeometryMute(nextH: number, prevH: number, pending: b
 	return pending && nextH > prevH + 1;
 }
 
+/**
+ * Whether a closed dock re-opens on reaching the bottom. Not while a teach
+ * check still waits behind its invitation (W5), and not after the learner
+ * minimized it with the button: that fold holds until the bar is tapped
+ * (or Enter). Pure for tests.
+ */
+export function atBottomAutoExpand(requiresReveal: boolean, revealed: boolean, manualFold: boolean): boolean {
+	return !(requiresReveal && !revealed) && !manualFold;
+}
+
 function DockOverlay({
 	pending,
 	initialQuestionDraft,
@@ -2089,6 +2099,19 @@ function DockOverlay({
 			? `practice:${practice.toolCallId}`
 			: "chat";
 
+	// The Minimize button's fold (owner, mobile round): set by the button,
+	// cleared by any explicit expand and by a new question/problem.
+	const manualFoldRef = useRef(false);
+	const manualFoldModeRef = useRef(mode);
+	if (manualFoldModeRef.current !== mode) {
+		manualFoldModeRef.current = mode;
+		manualFoldRef.current = false;
+	}
+	const minimize = () => {
+		manualFoldRef.current = true;
+		setExpanded(false);
+	};
+
 	// The plan marginalia's flank width (owner, plan-placement round): from
 	// the DOCK container's right edge to the block's right edge — the bare
 	// diagram's canvas. Tracked LIVE by a ResizeObserver on the block
@@ -2217,6 +2240,7 @@ function DockOverlay({
 		});
 	};
 	const expandAndReveal = () => {
+		manualFoldRef.current = false;
 		setRevealed(true); // the teach-check invitation was accepted (W5)
 		setExpanded(true);
 		void suppressFoldDuringReveal();
@@ -2277,8 +2301,9 @@ function DockOverlay({
 				if (d > COLLAPSE_DIST && !expandIntentRef.current && !atBottomRef.current) setExpanded(false);
 			} else if (d < EXPAND_DIST) {
 				// Teach checks stay collapsed until the learner opens them (W5): the
-				// at-bottom auto-expand would pop the form over the teaching.
-				if (requiresRevealRef.current && !revealedRef.current) return;
+				// at-bottom auto-expand would pop the form over the teaching. A
+				// Minimize fold likewise holds until the bar is tapped.
+				if (!atBottomAutoExpand(requiresRevealRef.current, revealedRef.current, manualFoldRef.current)) return;
 				setExpanded(true);
 				void scrollToBottom();
 			}
@@ -2384,7 +2409,7 @@ function DockOverlay({
 							claim={revealPending}
 						/>
 					)}
-					<div ref={shellRef} className="pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg">
+					<div ref={shellRef} className="pointer-events-auto relative overflow-hidden rounded-2xl border bg-card shadow-lg">
 						{/* Include descendant margins (notably practice thinking's
 						    bottom margin) in the natural content measurement. */}
 						<div
@@ -2414,6 +2439,7 @@ function DockOverlay({
 									input={practice.input as { statement: string }}
 									expanded={expanded}
 									onExpand={() => {
+										manualFoldRef.current = false;
 										setExpanded(true);
 										void suppressFoldDuringReveal();
 									}}
@@ -2425,6 +2451,17 @@ function DockOverlay({
 								composer
 							)}
 						</div>
+						{(pending || practice) && expanded && (
+							<button
+								type="button"
+								aria-label="Minimize"
+								title="Minimize"
+								onClick={minimize}
+								className="absolute right-2 top-2 flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							>
+								<ChevronDownIcon className="size-4" />
+							</button>
+						)}
 					</div>
 					</div>
 					</div>
