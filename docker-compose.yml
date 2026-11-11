@@ -4,6 +4,11 @@ services:
       context: ./
       dockerfile: ./Dockerfile
     restart: unless-stopped
+    # Run as the host owner of the mounted data/ and credential files (orca),
+    # not the image's node user (uid 1000), so the app can write them.
+    user: "1001:1001"
+    environment:
+      HOME: /home/node
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
