@@ -2939,7 +2939,7 @@ export function DockOverlay({
 									compactionRunning={compactionRunning}
 								/>
 							) : pluginPractice ? (
-								<PluginProblemDock {...pluginPractice} viewReader={customViewReader} expanded={expanded} onExpand={() => { setExpanded(true); void suppressFoldDuringReveal(); }} />
+								<PluginProblemDock {...pluginPractice} viewReader={customViewReader} expanded={expanded} onExpand={() => { manualFoldRef.current = false; setExpanded(true); void suppressFoldDuringReveal(); }} />
 							) : practice ? (
 								<PracticeDock
 									viewReader={practiceViewReader}
